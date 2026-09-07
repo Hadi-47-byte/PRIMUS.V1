@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRIMUS — AI Physics Tutor</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PRIMUS</h1>
+            <p class="subtitle">AI Physics Tutor — Grades 6–10</p>
+        </header>
+
+        <div id="chat-messages">
+            <div class="message system">
+                <p>Welcome to PRIMUS! Ask me anything about Physics.<br>
+                Try: "What is Newton's second law?" or "Quiz me on forces."</p>
+            </div>
+        </div>
+
+        <div id="error-banner" class="error-banner hidden"></div>
+
+        <form id="chat-form">
+            <textarea
+                id="message-input"
+                placeholder="Type your question… (Enter to send, Shift+Enter for newline)"
+                rows="2"
+                autofocus
+            ></textarea>
+            <button type="submit" id="send-btn">Send</button>
+        </form>
+
+        <footer>
+            Session: <code id="session-id"></code>
+            &nbsp;·&nbsp;
+            <a href="/docs" target="_blank">API Docs</a>
+        </footer>
+    </div>
+    <script src="/app.js"></script>
+</body>
+</html>

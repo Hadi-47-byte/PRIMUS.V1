@@ -1,0 +1,252 @@
+[
+  {
+    "id": "motion_basics",
+    "grade": 6,
+    "topic": "motion",
+    "concept": "Motion",
+    "definition": "Motion is the change in position of an object over time. An object is in motion if its position changes relative to a reference point.",
+    "formulas": [],
+    "examples": [
+      "A car moving along a road is in motion relative to the ground.",
+      "A book on a table is at rest relative to the table."
+    ],
+    "common_misconceptions": [
+      "Students may think an object is always in motion or always at rest, not realising motion depends on the reference point."
+    ],
+    "keywords": ["motion", "movement", "position", "reference point", "rest", "moving", "object"]
+  },
+  {
+    "id": "speed",
+    "grade": 6,
+    "topic": "motion",
+    "concept": "Speed",
+    "definition": "Speed is the rate at which an object covers distance. It tells you how fast something is moving but not in which direction.",
+    "formulas": ["speed = distance / time"],
+    "examples": [
+      "If a car travels 100 km in 2 hours, its speed is 50 km/h.",
+      "A snail moving 0.01 m per second has a speed of 0.01 m/s."
+    ],
+    "common_misconceptions": [
+      "Speed and velocity are the same — speed has no direction, velocity does."
+    ],
+    "keywords": ["speed", "fast", "slow", "distance", "time", "rate", "km/h", "m/s", "how fast"]
+  },
+  {
+    "id": "velocity",
+    "grade": 7,
+    "topic": "motion",
+    "concept": "Velocity",
+    "definition": "Velocity is speed in a specific direction. It is a vector quantity — it has both magnitude (speed) and direction.",
+    "formulas": ["velocity = displacement / time"],
+    "examples": [
+      "A car moving 60 km/h north has a velocity of 60 km/h north.",
+      "Two cars going opposite directions at 50 km/h have different velocities."
+    ],
+    "common_misconceptions": [
+      "Velocity is just speed — students forget the direction component.",
+      "An object moving in a circle at constant speed has changing velocity because the direction changes."
+    ],
+    "keywords": ["velocity", "speed", "direction", "vector", "displacement", "magnitude"]
+  },
+  {
+    "id": "acceleration",
+    "grade": 8,
+    "topic": "motion",
+    "concept": "Acceleration",
+    "definition": "Acceleration is the rate of change of velocity over time. An object accelerates when it speeds up, slows down, or changes direction.",
+    "formulas": ["acceleration = (final velocity - initial velocity) / time"],
+    "examples": [
+      "A car going from 0 to 100 km/h in 10 seconds has an acceleration of 10 km/h per second.",
+      "A ball thrown upward decelerates (negative acceleration) due to gravity."
+    ],
+    "common_misconceptions": [
+      "Acceleration only means speeding up — it also includes slowing down (deceleration) and changing direction.",
+      "Zero acceleration means zero velocity — no, it means constant velocity."
+    ],
+    "keywords": ["acceleration", "accelerate", "deceleration", "change in velocity", "speeding up", "slowing down", "rate of change"]
+  },
+  {
+    "id": "force_basics",
+    "grade": 7,
+    "topic": "force_and_motion",
+    "concept": "Force",
+    "definition": "A force is a push or pull acting on an object. Forces can cause an object to start moving, stop moving, change speed, or change direction. Force is measured in Newtons (N).",
+    "formulas": [],
+    "examples": [
+      "Pushing a shopping cart applies a force.",
+      "Gravity pulls objects toward the Earth."
+    ],
+    "common_misconceptions": [
+      "A force is needed to keep an object moving — in reality, objects in motion stay in motion unless a force (like friction) acts on them."
+    ],
+    "keywords": ["force", "push", "pull", "newton", "contact force", "non-contact force"]
+  },
+  {
+    "id": "newtons_first_law",
+    "grade": 8,
+    "topic": "force_and_motion",
+    "concept": "Newton's First Law (Law of Inertia)",
+    "definition": "An object at rest stays at rest, and an object in motion stays in motion at constant velocity, unless acted upon by a net external force. This is also called the law of inertia.",
+    "formulas": [],
+    "examples": [
+      "A ball rolling on a flat surface eventually stops because of friction (an external force).",
+      "Passengers lurch forward when a bus suddenly stops because their bodies tend to keep moving."
+    ],
+    "common_misconceptions": [
+      "Objects naturally come to rest — they actually continue moving unless a force like friction stops them.",
+      "Inertia is a force — inertia is a property of matter, not a force."
+    ],
+    "keywords": ["newton first law", "inertia", "law of inertia", "rest", "constant velocity", "net force", "external force"]
+  },
+  {
+    "id": "newtons_second_law",
+    "grade": 8,
+    "topic": "force_and_motion",
+    "concept": "Newton's Second Law",
+    "definition": "The acceleration of an object is directly proportional to the net force acting on it and inversely proportional to its mass. More force means more acceleration; more mass means less acceleration.",
+    "formulas": ["F = ma", "F = m × a"],
+    "examples": [
+      "Pushing a 2 kg box with 10 N of force gives an acceleration of 5 m/s².",
+      "A heavier truck needs more force than a car to achieve the same acceleration."
+    ],
+    "common_misconceptions": [
+      "F = ma means force equals mass plus acceleration — it is mass times acceleration.",
+      "Heavier objects fall faster — in a vacuum all objects fall at the same rate regardless of mass."
+    ],
+    "keywords": ["newton second law", "f=ma", "force equals mass times acceleration", "force", "mass", "acceleration", "net force", "proportional"]
+  },
+  {
+    "id": "newtons_third_law",
+    "grade": 8,
+    "topic": "force_and_motion",
+    "concept": "Newton's Third Law",
+    "definition": "For every action, there is an equal and opposite reaction. When one object exerts a force on a second object, the second object exerts an equal force in the opposite direction on the first object.",
+    "formulas": [],
+    "examples": [
+      "When you push against a wall, the wall pushes back on you with equal force.",
+      "A rocket moves forward by expelling gas backward."
+    ],
+    "common_misconceptions": [
+      "Action and reaction forces cancel out — they act on different objects so they don't cancel.",
+      "The reaction force is weaker — it is always exactly equal in magnitude."
+    ],
+    "keywords": ["newton third law", "action reaction", "equal and opposite", "reaction force", "pair of forces"]
+  },
+  {
+    "id": "gravity",
+    "grade": 7,
+    "topic": "force_and_motion",
+    "concept": "Gravity",
+    "definition": "Gravity is the force of attraction between any two objects that have mass. On Earth, gravity pulls objects toward the centre of the planet with an acceleration of approximately 9.8 m/s².",
+    "formulas": ["weight = mass × g", "W = mg", "g ≈ 9.8 m/s²"],
+    "examples": [
+      "A 50 kg student weighs about 490 N on Earth (50 × 9.8).",
+      "The same student would weigh less on the Moon because the Moon's gravity is weaker."
+    ],
+    "common_misconceptions": [
+      "Mass and weight are the same — mass is the amount of matter, weight is the gravitational force on that mass.",
+      "There is no gravity in space — gravity exists everywhere, it just gets weaker with distance."
+    ],
+    "keywords": ["gravity", "gravitational", "weight", "mass", "g", "9.8", "earth", "fall", "falling", "free fall"]
+  },
+  {
+    "id": "momentum",
+    "grade": 9,
+    "topic": "force_and_motion",
+    "concept": "Momentum",
+    "definition": "Momentum is the product of an object's mass and its velocity. It describes how hard it is to stop a moving object. Momentum is a vector — it has both size and direction.",
+    "formulas": ["p = mv", "momentum = mass × velocity"],
+    "examples": [
+      "A 1000 kg car moving at 20 m/s has a momentum of 20,000 kg·m/s.",
+      "A fast bullet has high momentum despite small mass because of high velocity."
+    ],
+    "common_misconceptions": [
+      "Momentum and force are the same — momentum is a property of a moving object, force is what changes momentum."
+    ],
+    "keywords": ["momentum", "mass", "velocity", "p=mv", "conservation of momentum", "collision"]
+  },
+  {
+    "id": "work",
+    "grade": 9,
+    "topic": "energy",
+    "concept": "Work",
+    "definition": "Work is done when a force moves an object in the direction of the force. Work is measured in Joules (J). No work is done if the object does not move.",
+    "formulas": ["W = Fd", "work = force × distance"],
+    "examples": [
+      "Pushing a box 5 m with 20 N of force does 100 J of work.",
+      "Carrying a bag while walking horizontally does no work against gravity."
+    ],
+    "common_misconceptions": [
+      "Holding a heavy object is doing work — no work is done unless the object moves in the direction of the force."
+    ],
+    "keywords": ["work", "joule", "force", "distance", "energy transfer", "w=fd"]
+  },
+  {
+    "id": "energy",
+    "grade": 8,
+    "topic": "energy",
+    "concept": "Energy",
+    "definition": "Energy is the ability to do work. It comes in many forms: kinetic (motion), potential (stored), thermal (heat), light, sound, electrical, and chemical. Energy cannot be created or destroyed — only transformed from one form to another.",
+    "formulas": ["KE = ½mv²", "PE = mgh"],
+    "examples": [
+      "A moving ball has kinetic energy.",
+      "A stretched rubber band has elastic potential energy.",
+      "Food contains chemical energy that your body converts to kinetic energy."
+    ],
+    "common_misconceptions": [
+      "Energy can be used up — energy is transformed, not destroyed.",
+      "Only moving objects have energy — stationary objects can have potential energy."
+    ],
+    "keywords": ["energy", "kinetic", "potential", "conservation of energy", "joule", "work", "transform", "heat", "thermal"]
+  },
+  {
+    "id": "power",
+    "grade": 9,
+    "topic": "energy",
+    "concept": "Power",
+    "definition": "Power is the rate at which work is done or energy is transferred. It is measured in Watts (W). One Watt equals one Joule per second.",
+    "formulas": ["P = W / t", "power = work / time", "P = E / t"],
+    "examples": [
+      "A 60 W light bulb uses 60 Joules of energy every second.",
+      "Lifting a box quickly requires more power than lifting it slowly, even though the work done is the same."
+    ],
+    "common_misconceptions": [
+      "Power and energy are the same — power is the rate of energy use, energy is the total amount."
+    ],
+    "keywords": ["power", "watt", "rate", "work", "energy", "time", "p=w/t", "joules per second"]
+  },
+  {
+    "id": "sound_waves",
+    "grade": 9,
+    "topic": "waves",
+    "concept": "Sound Waves",
+    "definition": "Sound is a longitudinal wave that travels through a medium (solid, liquid, or gas) by compressing and expanding the particles. Sound cannot travel through a vacuum.",
+    "formulas": ["v = f × λ", "speed = frequency × wavelength"],
+    "examples": [
+      "Sound travels faster in water (~1500 m/s) than in air (~340 m/s).",
+      "You cannot hear sound in outer space because there is no medium."
+    ],
+    "common_misconceptions": [
+      "Sound travels through a vacuum — it needs a medium (particles) to propagate.",
+      "Sound travels faster than light — light is much faster (~300,000 km/s vs ~340 m/s in air)."
+    ],
+    "keywords": ["sound", "wave", "longitudinal", "frequency", "wavelength", "medium", "vibration", "compress", "rarefaction"]
+  },
+  {
+    "id": "frequency_wavelength",
+    "grade": 10,
+    "topic": "waves",
+    "concept": "Frequency and Wavelength",
+    "definition": "Frequency is the number of wave cycles per second, measured in Hertz (Hz). Wavelength is the distance between two consecutive identical points on a wave. Higher frequency means shorter wavelength and vice versa.",
+    "formulas": ["v = f × λ", "f = v / λ", "λ = v / f", "T = 1 / f"],
+    "examples": [
+      "A radio station at 100 MHz has a frequency of 100,000,000 cycles per second.",
+      "Red light has a longer wavelength (~700 nm) than blue light (~450 nm)."
+    ],
+    "common_misconceptions": [
+      "Frequency and wavelength are the same thing — they are inversely related.",
+      "Amplitude affects frequency — amplitude affects loudness/intensity, not frequency."
+    ],
+    "keywords": ["frequency", "wavelength", "hertz", "hz", "wave", "period", "amplitude", "cycle", "v=fλ", "electromagnetic"]
+  }
+]

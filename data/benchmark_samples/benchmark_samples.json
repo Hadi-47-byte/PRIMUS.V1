@@ -1,0 +1,50 @@
+[
+  {
+    "id": "en_01",
+    "language": "en",
+    "reference": "What is Newton's second law?",
+    "audio_file": "en_01.wav",
+    "category": "english",
+    "notes": "Standard English physics question"
+  },
+  {
+    "id": "en_02",
+    "language": "en",
+    "reference": "Explain acceleration with a simple example.",
+    "audio_file": "en_02.wav",
+    "category": "english_accented",
+    "notes": "Pakistani-accented English"
+  },
+  {
+    "id": "ur_01",
+    "language": "ur",
+    "reference": "نیوٹن کا دوسرا قانون کیا ہے؟",
+    "audio_file": "ur_01.wav",
+    "category": "urdu_script",
+    "notes": "Urdu script physics question"
+  },
+  {
+    "id": "roman_ur_01",
+    "language": "auto",
+    "reference": "Newton ka doosra qanoon kya hai?",
+    "audio_file": "roman_ur_01.wav",
+    "category": "roman_urdu",
+    "notes": "Roman Urdu — Whisper may detect as English"
+  },
+  {
+    "id": "mixed_01",
+    "language": "auto",
+    "reference": "Newton's second law ko simple Urdu mein explain karo.",
+    "audio_file": "mixed_01.wav",
+    "category": "mixed",
+    "notes": "Mixed English/Urdu code-switching"
+  },
+  {
+    "id": "mixed_02",
+    "language": "auto",
+    "reference": "Force aur acceleration ka kya relation hai?",
+    "audio_file": "mixed_02.wav",
+    "category": "mixed",
+    "notes": "Roman Urdu with English technical terms"
+  }
+]

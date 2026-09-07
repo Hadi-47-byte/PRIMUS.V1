@@ -1,0 +1,12 @@
+[
+  {
+    "id": "en_01",
+    "language": "en",
+    "reference": "What is Newton's second law?",
+    "predicted": "",
+    "provider": "",
+    "duration_ms": null,
+    "transcription_ms": null,
+    "notes": "Template entry — fill after running benchmark"
+  }
+]

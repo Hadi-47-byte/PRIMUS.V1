@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment variables
+# .env.* also catches local notes like .env.txt; the template stays tracked.
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# OneDrive
+*.tmp
+~*
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution
+*.whl
+
+# Firmware secrets (any config.h under firmware/ — the sketch-level copy
+# firmware/primus_esp32/config.h holds real Wi-Fi credentials)
+firmware/**/config.h
+
+# Generated audio (TTS output in any format)
+data/audio/*
+!data/audio/.gitkeep
+
+# Benchmark audio samples (too large for repository)
+data/benchmark_samples/*.wav
+data/benchmark_samples/*.mp3
+data/benchmark_samples/*.m4a
