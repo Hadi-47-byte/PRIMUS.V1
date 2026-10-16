@@ -86,7 +86,12 @@ class RobotOrchestrator:
                 robot_state,
             )
             sent = await self._controller.send_state(robot_state)
-            if not sent:
+            if sent:
+                logger.info(
+                    "Robot state dispatched: '%s' → '%s'",
+                    interaction_value, robot_state,
+                )
+            else:
                 logger.info("Robot offline; skipping physical expression.")
             return sent
         except Exception as exc:

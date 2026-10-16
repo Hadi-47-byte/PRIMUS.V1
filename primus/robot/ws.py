@@ -43,4 +43,4 @@ async def robot_ws_handler(websocket: WebSocket, controller: RobotController) ->
     except Exception as exc:
         logger.error("Robot WebSocket error: %s", exc)
     finally:
-        await controller.disconnect()
+        await controller.disconnect(websocket) 

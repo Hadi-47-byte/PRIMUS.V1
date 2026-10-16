@@ -74,6 +74,12 @@
 #define SERVO_MAX       130
 #define SERVO_NEUTRAL   90
 
+// ---- Record button (momentary, active LOW via INPUT_PULLUP) ----------
+// GPIO 4 — free of conflicts with servo(13), OLED(21/22), WS2812(18),
+// INMP441(26/25/33), MAX98357A(27/14/19), Serial(1/3).
+// No boot-strapping concern.  Wire: button between GPIO 4 and GND.
+#define BUTTON_PIN      4
+
 // ---- Audio sample rate -----------------------------------------------
 #define AUDIO_SAMPLE_RATE  16000
 

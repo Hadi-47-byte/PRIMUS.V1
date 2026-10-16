@@ -44,12 +44,16 @@ class RobotController:
             self._ws = websocket
             logger.info("Robot connected.")
 
-    async def disconnect(self) -> None:
-        """Clear the active robot connection."""
+   
+    async def disconnect(self, websocket=None) -> None:
+        """Clear the active connection only if it matches the disconnecting socket."""
         async with self._lock:
-            if self._ws is not None:
+            if self._ws is not None and (
+                websocket is None or self._ws is websocket
+            ):
                 self._ws = None
                 logger.info("Robot disconnected.")
+
 
     # -- queries ------------------------------------------------------------
 

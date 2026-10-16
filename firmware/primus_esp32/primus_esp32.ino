@@ -74,12 +74,46 @@ String currentState = "idle";
 unsigned long lastReconnect = 0;
 bool wsConnected = false;
 
+// Re-entrancy guard for playAudioFromBackend().  The streaming loop pumps
+// ws.loop() to keep the WebSocket alive, so a robot_audio message can
+// arrive MID-playback and re-enter playAudioFromBackend() via
+// handleIncomingMessage().  While this flag is set, the nested call drops
+// the request instead of starting a second concurrent playback.
+// Declared here (not near playAudioFromBackend) so that loop(),
+// checkRecordButton(), and the Serial trigger can all reference it.
+bool audioPlaybackActive = false;
+
+// RAII: clears the guard on every exit path — including the early
+// HTTP-failure returns inside playAudioFromBackend().
+struct AudioPlaybackGuard {
+    AudioPlaybackGuard()  { audioPlaybackActive = true; }
+    ~AudioPlaybackGuard() { audioPlaybackActive = false; }
+};
+
 // --- I2S instances (ESP32 Arduino 3.x class API) -------------------------
 // I2S speaker → MAX98357A  (I2S_NUM_0, TX only)
 // I2S mic     → INMP441    (I2S_NUM_1, RX only)
 // Two independent I2S peripherals allow simultaneous mic + speaker.
 I2SClass i2sSpeaker(I2S_NUM_0);
 I2SClass i2sMic(I2S_NUM_1);
+
+// --- recording buffer (sized after heap check in setup) -----------------
+// PCM: 16 kHz mono 16-bit = 32 000 B/s.
+// Duration is chosen at runtime based on free heap after all peripherals
+// are initialised (Wi-Fi stack ≈ 50–80 KB, I2S DMA ≈ 4 KB, WS ≈ 5 KB).
+static const uint32_t REC_BYTES_PER_SEC = (uint32_t)AUDIO_SAMPLE_RATE * 2;  // 32 000
+static const uint8_t  REC_MIN_SEC       = 3;   // default (safe for low heap)
+static const uint8_t  REC_MAX_SEC       = 5;   // only if heap clearly supports it
+static const uint32_t REC_HEAP_MARGIN   = 32768; // 32 KB breathing room
+uint8_t  recordDurationSec = REC_MIN_SEC;  // chosen in setup()
+uint32_t recordBufferSize  = 0;            // bytes = recordDurationSec * REC_BYTES_PER_SEC
+
+// --- recording state -------------------------------------------------------
+static const uint32_t REC_DEBOUNCE_MS  = 50;
+static const uint32_t REC_WS_PUMP_EVERY = 20;   // ws.loop() every N chunks
+static const uint8_t  REC_CHUNK_SAMPLES = 64;    // matches readMicLevel()
+static const uint16_t REC_CHUNK_BYTES   = REC_CHUNK_SAMPLES * sizeof(int16_t);  // 128 B
+static const size_t   REC_WAV_HDR_SIZE  = 44;    // WAV header bytes
 
 // =========================================================================
 //  SETUP
@@ -169,6 +203,35 @@ void setup() {
     ws.onEvent(onWsEvent);
     ws.setReconnectInterval(RECONNECT_MS);
     Serial.println(F("[WS] Connecting to backend..."));
+
+    // ── Button (momentary, active LOW via internal pull-up) ───────────
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    Serial.printf("[INIT] Button → GPIO %d (INPUT_PULLUP)\n", BUTTON_PIN);
+
+    // ── 5. Heap-based recording buffer sizing ─────────────────────────
+    // Everything is now initialised (servo, OLED, NeoPixel, both I2S
+    // buses, Wi-Fi stack, WebSocket client) so ESP.getFreeHeap() gives
+    // a realistic baseline — not the raw power-on figure.
+    uint32_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("[HEAP] Free after full init: %u bytes\n", freeHeap);
+
+    uint32_t buf5 = REC_BYTES_PER_SEC * REC_MAX_SEC;  // 160 000 B
+    uint32_t buf3 = REC_BYTES_PER_SEC * REC_MIN_SEC;  //  96 000 B
+
+    if (freeHeap >= buf5 + REC_HEAP_MARGIN) {
+        recordDurationSec = REC_MAX_SEC;
+        recordBufferSize  = buf5;
+        Serial.printf("[HEAP] → %u s record buffer (%u B), margin %u B\n",
+                      REC_MAX_SEC, buf5, freeHeap - buf5);
+    } else {
+        recordDurationSec = REC_MIN_SEC;
+        recordBufferSize  = buf3;
+        Serial.printf("[HEAP] → %u s record buffer (%u B), margin %u B\n",
+                      REC_MIN_SEC, buf3, freeHeap - buf3);
+        if (freeHeap < buf3 + REC_HEAP_MARGIN) {
+            Serial.println(F("[HEAP] WARNING: margin below 32 KB — recording may be unstable"));
+        }
+    }
 }
 
 // =========================================================================
@@ -182,6 +245,8 @@ void loop() {
 #endif
 
     ws.loop();
+    checkRecordButton();
+    handleSerialCommands();
 
     // If Wi-Fi dropped, attempt reconnection
     if (WiFi.status() != WL_CONNECTED) {
@@ -252,6 +317,7 @@ void handleIncomingMessage(char* payload, size_t length) {
     if (strcmp(msgType, "robot_state") == 0) {
         // Validate state against allowlist
         const char* state = doc["state"] | "idle";
+        Serial.printf("[ROBOT] Received state: %s\n", state);
         if (!isAllowedState(state)) {
             Serial.printf("[MSG] Unknown state: %s → idle\n", state);
             applyState("idle");
@@ -297,6 +363,7 @@ bool isAllowedState(const char* state) {
 void applyState(const char* state) {
     currentState = String(state);
     Serial.printf("[STATE] → %s\n", state);
+    Serial.printf("[ROBOT] OLED expression: %s\n", state);
 
     if      (strcmp(state, "idle")        == 0) doIdle();
     else if (strcmp(state, "listening")   == 0) doListening();
@@ -416,20 +483,6 @@ void playTestTone(uint16_t freqHz, uint32_t durationMs) {
 
 // Abort playback if the HTTP body stalls for this long (server hang).
 static const uint32_t AUDIO_STALL_TIMEOUT_MS = 5000;
-
-// Re-entrancy guard.  The streaming loop below pumps ws.loop() to keep the
-// WebSocket alive, so a robot_audio message can arrive MID-playback and
-// re-enter playAudioFromBackend() via handleIncomingMessage().  While this
-// flag is set, the nested call drops the request instead of starting a
-// second concurrent playback (recursive HTTP fetch + I2S writes).
-bool audioPlaybackActive = false;
-
-// RAII: clears the guard on every exit path — including the early
-// HTTP-failure returns inside playAudioFromBackend().
-struct AudioPlaybackGuard {
-    AudioPlaybackGuard()  { audioPlaybackActive = true; }
-    ~AudioPlaybackGuard() { audioPlaybackActive = false; }
-};
 
 /// Stream a raw PCM16 audio file from the backend to the speaker.
 /// The body is streamed in small chunks — never buffered fully in RAM.
@@ -556,9 +609,11 @@ void playAudioFromBackend(const char* audioPath, int sampleRate) {
 /// Read a short burst of microphone samples and report RMS level.
 /// Returns the RMS amplitude (0–32767).  0 = silence.
 /// This proves the INMP441 is connected and producing data.
+/// NOTE: I2S DMA delivers 32-bit stereo frames even in mono mode;
+/// we extract only the left channel (low 16 bits) per frame.
 int16_t readMicLevel(uint32_t durationMs) {
     const uint32_t totalSamples = (uint32_t)AUDIO_SAMPLE_RATE * durationMs / 1000;
-    int16_t sampleBuf[64];
+    int32_t frameBuf[64];               // 32-bit stereo frames from DMA
     uint32_t sampleIdx = 0;
     double sumSquares = 0.0;
     uint32_t count = 0;
@@ -568,10 +623,12 @@ int16_t readMicLevel(uint32_t durationMs) {
         if (sampleIdx + chunkSize > totalSamples) {
             chunkSize = totalSamples - sampleIdx;
         }
-        size_t bytesRead = i2sMic.readBytes((char *)sampleBuf, chunkSize * sizeof(int16_t));
-        int samplesRead = bytesRead / sizeof(int16_t);
-        for (int i = 0; i < samplesRead; i++) {
-            sumSquares += (double)sampleBuf[i] * (double)sampleBuf[i];
+        size_t bytesRead = i2sMic.readBytes(
+            (char*)frameBuf, chunkSize * sizeof(int32_t));
+        size_t frames = bytesRead / sizeof(int32_t);
+        for (size_t i = 0; i < frames; i++) {
+            int16_t sample = (int16_t)(frameBuf[i] & 0xFFFF);
+            sumSquares += (double)sample * (double)sample;
             count++;
         }
         sampleIdx += chunkSize;
@@ -579,6 +636,224 @@ int16_t readMicLevel(uint32_t durationMs) {
 
     if (count == 0) return 0;
     return (int16_t)sqrt(sumSquares / count);
+}
+
+// =========================================================================
+//  RECORDING — button-triggered capture + WAV wrapping (Stage 1)
+// =========================================================================
+
+/// Write a minimal 44-byte WAV header (RIFF/WAVE + fmt + data) into buf.
+/// Caller must ensure buf is at least 44 bytes.  All fields are
+/// little-endian per the RIFF specification.
+static void writeWavHeader(uint8_t* buf, uint32_t dataSize) {
+    uint32_t fileSize   = 36 + dataSize;           // RIFF chunk data
+    uint16_t channels   = 1;                        // mono
+    uint32_t sampleRate = AUDIO_SAMPLE_RATE;        // 16 000
+    uint16_t bps        = 16;                       // bits per sample
+    uint16_t blockAlign = channels * (bps / 8);     // 2 B/sample
+    uint32_t byteRate   = sampleRate * blockAlign;   // 32 000 B/s
+
+    // -- RIFF descriptor (12 B) -----------------------------------------
+    memcpy(buf + 0,  "RIFF", 4);
+    memcpy(buf + 8,  "WAVE", 4);
+    buf[4] = fileSize & 0xFF;
+    buf[5] = (fileSize >> 8)  & 0xFF;
+    buf[6] = (fileSize >> 16) & 0xFF;
+    buf[7] = (fileSize >> 24) & 0xFF;
+
+    // -- fmt sub-chunk (24 B) -------------------------------------------
+    memcpy(buf + 12, "fmt ", 4);
+    buf[16] = 16; buf[17] = 0; buf[18] = 0; buf[19] = 0; // sub-chunk size
+    buf[20] = 1;  buf[21] = 0;                             // PCM
+    buf[22] = channels & 0xFF;
+    buf[23] = (channels >> 8) & 0xFF;
+    buf[24] = sampleRate & 0xFF;
+    buf[25] = (sampleRate >> 8)  & 0xFF;
+    buf[26] = (sampleRate >> 16) & 0xFF;
+    buf[27] = (sampleRate >> 24) & 0xFF;
+    buf[28] = byteRate & 0xFF;
+    buf[29] = (byteRate >> 8)  & 0xFF;
+    buf[30] = (byteRate >> 16) & 0xFF;
+    buf[31] = (byteRate >> 24) & 0xFF;
+    buf[32] = blockAlign & 0xFF;
+    buf[33] = (blockAlign >> 8) & 0xFF;
+    buf[34] = bps & 0xFF;
+    buf[35] = (bps >> 8) & 0xFF;
+
+    // -- data sub-chunk header (8 B) ------------------------------------
+    memcpy(buf + 36, "data", 4);
+    buf[40] = dataSize & 0xFF;
+    buf[41] = (dataSize >> 8)  & 0xFF;
+    buf[42] = (dataSize >> 16) & 0xFF;
+    buf[43] = (dataSize >> 24) & 0xFF;
+}
+
+/// Button-triggered recording capture.
+///
+/// Called from checkRecordButton() on a debounced falling edge.
+/// Allocates a SINGLE buffer (recordBufferSize + 44) and reads PCM
+/// directly into buffer+44 — no second allocation, no memcpy.
+/// The WAV header is written into the first 44 bytes in-place.
+/// Pumps ws.loop() every ~20 chunks to keep the WebSocket alive.
+///
+/// Stage 1: Serial-only verification — no HTTP send.
+static void recordAndWrapWav() {
+    // Single allocation: [WAV header 44 B][PCM data recordBufferSize B]
+    uint32_t totalAlloc = recordBufferSize + REC_WAV_HDR_SIZE;
+
+    Serial.println(F("\n[REC] === Recording started ==="));
+    Serial.printf("[REC] Allocating %u B (hdr 44 + pcm %u, %u s)\n",
+                  totalAlloc, recordBufferSize, recordDurationSec);
+
+    uint8_t* wavBuf = (uint8_t*)malloc(totalAlloc);
+    if (!wavBuf) {
+        Serial.printf("[REC] ALLOCATION FAILED — need %u B, free heap %u B\n",
+                      totalAlloc, ESP.getFreeHeap());
+        return;
+    }
+
+    Serial.printf("[REC] Heap after alloc: %u B\n", ESP.getFreeHeap());
+
+    // Pre-write the WAV header into the first 44 bytes
+    writeWavHeader(wavBuf, recordBufferSize);
+
+    // -- Chunked I2S capture directly into wavBuf + 44 ------------------
+    // ESP32 I2S standard-mode DMA delivers full 32-bit stereo frames
+    // (16-bit left + 16-bit right) even when I2S_SLOT_MODE_MONO is set.
+    // The mono mode selects which slot the hardware clocks in, but
+    // readBytes() returns the raw interleaved data.  We must read as
+    // 32-bit frames and extract only the left channel.
+    uint8_t* pcmStart = wavBuf + REC_WAV_HDR_SIZE;
+    uint32_t totalBytes = 0;
+    uint32_t chunkCount = 0;
+    uint32_t nextLogAt  = REC_BYTES_PER_SEC;  // progress at ~1 s
+    uint32_t wsDiv      = 0;
+    int32_t  frameBuf[REC_CHUNK_SAMPLES];     // 32-bit stereo frames from DMA
+    uint32_t startMs    = millis();
+
+    while (totalBytes < recordBufferSize) {
+        uint32_t remaining = recordBufferSize - totalBytes;
+        uint16_t toRead    = (remaining < REC_CHUNK_BYTES)
+                             ? (uint16_t)remaining : REC_CHUNK_BYTES;
+
+        size_t bytesRead = i2sMic.readBytes(
+            (char*)frameBuf, toRead);
+        if (bytesRead == 0) break;
+
+        // Extract left channel (low 16 bits) from each 32-bit frame
+        size_t frames = bytesRead / sizeof(int32_t);
+        int16_t* dst = (int16_t*)(pcmStart + totalBytes);
+        for (size_t i = 0; i < frames; i++) {
+            dst[i] = (int16_t)(frameBuf[i] & 0xFFFF);
+        }
+        totalBytes += frames * sizeof(int16_t);
+        chunkCount++;
+
+        // Pump WebSocket every REC_WS_PUMP_EVERY chunks (~20 chunks)
+        if (++wsDiv >= REC_WS_PUMP_EVERY) {
+            wsDiv = 0;
+            ws.loop();
+        }
+
+        // Progress every ~1 s of audio
+        if (totalBytes >= nextLogAt) {
+            Serial.printf("[REC]   %u / %u B\n", totalBytes, recordBufferSize);
+            nextLogAt += REC_BYTES_PER_SEC;
+        }
+    }
+
+    uint32_t elapsedMs = millis() - startMs;
+
+    Serial.println(F("[REC] === Recording complete ==="));
+    Serial.printf("[REC] Samples captured: %u\n", totalBytes / sizeof(int16_t));
+    Serial.printf("[REC] Bytes captured:   %u / %u\n", totalBytes, recordBufferSize);
+    Serial.printf("[REC] Wall time:        %u ms\n", elapsedMs);
+    Serial.printf("[REC] Chunks read:      %u\n", chunkCount);
+
+    // -- WAV verification (single buffer — no copy needed) ---------------
+    uint32_t wavTotal = REC_WAV_HDR_SIZE + totalBytes;
+    Serial.printf("[REC] WAV total:   %u B (hdr 44 + pcm %u)\n",
+                  wavTotal, totalBytes);
+    Serial.printf("[REC] Expected:    %u B — %s\n",
+                  wavTotal,
+                  (wavTotal == REC_WAV_HDR_SIZE + recordBufferSize) ? "MATCH" : "MISMATCH");
+
+    // First 32 PCM samples — verify NO back-to-back duplicates
+    Serial.print(F("[REC] First 32 samples: "));
+    int16_t* s = (int16_t*)pcmStart;
+    int dumpCount = (totalBytes / sizeof(int16_t) < 32)
+                    ? (int)(totalBytes / sizeof(int16_t)) : 32;
+    for (int i = 0; i < dumpCount; i++) {
+        Serial.printf("%d ", s[i]);
+    }
+    Serial.println();
+
+    // -- WebSocket health check -----------------------------------------
+    Serial.printf("[REC] WS connected: %s\n",
+                  wsConnected ? "yes" : "NO");
+
+    // -- Heap leak check (single free — no double alloc to track) -------
+    free(wavBuf);
+    Serial.printf("[REC] Heap after free: %u B — buffer released\n",
+                  ESP.getFreeHeap());
+    Serial.println();
+}
+
+/// Handle Serial Monitor commands for testing (emotion + recording).
+/// Type a single character in the Serial Monitor input box + Enter:
+///   1=idle  2=listening  3=thinking  4=speaking
+///   5=happy  6=encouraging  7=excited  r/R=record
+static void handleSerialCommands() {
+    if (Serial.available() == 0) return;
+    char c = Serial.read();
+
+    const char* cmdState = nullptr;
+    switch (c) {
+        case '1': cmdState = "idle";          break;
+        case '2': cmdState = "listening";     break;
+        case '3': cmdState = "thinking";      break;
+        case '4': cmdState = "speaking";      break;
+        case '5': cmdState = "happy";         break;
+        case '6': cmdState = "encouraging";   break;
+        case '7': cmdState = "excited";       break;
+        case 'r': case 'R':
+            if (audioPlaybackActive) {
+                Serial.println(F("[REC] Serial trigger skipped — playback in progress"));
+            } else {
+                Serial.println(F("[REC] Serial trigger received"));
+                recordAndWrapWav();
+            }
+            return;
+        default:
+            return;  // ignore other characters
+    }
+
+    if (cmdState) {
+        Serial.printf("[TEST] Serial emotion trigger → %s\n", cmdState);
+        applyState(cmdState);
+    }
+}
+
+/// Poll the record button with simple 50 ms debounce.
+static void checkRecordButton() {
+    static bool     lastPressed = false;
+    static uint32_t lastPressMs = 0;
+
+    bool pressed = (digitalRead(BUTTON_PIN) == LOW);
+
+    if (pressed && !lastPressed) {
+        uint32_t now = millis();
+        if (now - lastPressMs >= REC_DEBOUNCE_MS) {
+            lastPressMs = now;
+            // Block recording during speaker playback to avoid feedback
+            if (audioPlaybackActive) {
+                Serial.println(F("[REC] Skipped — audio playback in progress"));
+            } else {
+                recordAndWrapWav();
+            }
+        }
+    }
+    lastPressed = pressed;
 }
 
 // =========================================================================

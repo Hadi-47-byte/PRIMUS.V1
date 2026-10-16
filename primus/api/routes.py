@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+import struct
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, Request, UploadFile, WebSocket
@@ -263,6 +264,109 @@ async def set_robot_audio(body: RobotAudioRequest, request: Request):
             status_code=503,
             content={"status": "send_failed"},
         )
+
+
+# ---------------------------------------------------------------------------
+# WAV-check test endpoint (dev only — no STT / LLM)
+# ---------------------------------------------------------------------------
+
+# Maximum upload size for WAV-check (2 MB).  A 5 s recording at
+# 16 kHz mono 16-bit is ~160 KB, so 2 MB is generous headroom.
+_WAV_CHECK_MAX_BYTES = 2 * 1024 * 1024
+
+
+@router.post(
+    "/test/wav-check",
+    tags=["test"],
+    responses={
+        400: {"description": "File too small, too large, or not a valid WAV"},
+    },
+)
+async def wav_check(audio: UploadFile = File(...)):
+    """Accept a multipart WAV upload and validate its header (dev/test only).
+
+    Reports file size, RIFF/WAVE magic, and parsed ``fmt`` chunk fields
+    (channels, sample rate, bit depth) **without** calling STT or Gemini.
+    Matches the lightweight dev-endpoint pattern of ``/robot/state`` and
+    ``/robot/audio``.
+    """
+    content = await audio.read()
+    size = len(content)
+
+    # -- size guards -------------------------------------------------------
+    if size > _WAV_CHECK_MAX_BYTES:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "too_large",
+                "size_bytes": size,
+                "max_bytes": _WAV_CHECK_MAX_BYTES,
+            },
+        )
+
+    if size < 44:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "too_small",
+                "size_bytes": size,
+                "detail": "WAV header requires at least 44 bytes.",
+            },
+        )
+
+    # -- RIFF / WAVE magic -------------------------------------------------
+    riff_id = content[0:4]
+    wave_id = content[8:12]
+
+    if riff_id != b"RIFF" or wave_id != b"WAVE":
+        return {
+            "status": "not_wav",
+            "size_bytes": size,
+            "detail": "Missing RIFF/WAVE header markers.",
+        }
+
+    # -- fmt chunk (bytes 12–35) -------------------------------------------
+    fmt_id = content[12:16]
+    if fmt_id != b"fmt ":
+        return {
+            "status": "not_wav",
+            "size_bytes": size,
+            "detail": "Expected 'fmt ' sub-chunk not found.",
+        }
+
+    (audio_format, channels, sample_rate, byte_rate,
+     block_align, bits_per_sample) = struct.unpack_from("<HHIIHH", content, 20)
+
+    # -- data chunk --------------------------------------------------------
+    data_id = content[36:40]
+    data_size = struct.unpack_from("<I", content, 40)[0]
+
+    has_data_chunk = (data_id == b"data")
+    duration_s = (
+        data_size / (sample_rate * channels * (bits_per_sample // 8))
+        if has_data_chunk and sample_rate > 0 and channels > 0
+        and bits_per_sample > 0 else None
+    )
+
+    return {
+        "status": "valid_wav",
+        "size_bytes": size,
+        "wav": {
+            "audio_format": audio_format,
+            "is_pcm": audio_format == 1,
+            "channels": channels,
+            "sample_rate": sample_rate,
+            "byte_rate": byte_rate,
+            "block_align": block_align,
+            "bits_per_sample": bits_per_sample,
+        },
+        "data": {
+            "present": has_data_chunk,
+            "size_bytes": data_size if has_data_chunk else None,
+            "duration_seconds": round(duration_s, 3) if duration_s is not None else None,
+        },
+        "matches_robot_rate": sample_rate == ROBOT_AUDIO_SAMPLE_RATE,
+    }
 
 
 # ---------------------------------------------------------------------------

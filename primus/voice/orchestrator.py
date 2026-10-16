@@ -41,12 +41,20 @@ ROBOT_AUDIO_SAMPLE_RATE = 16000
 
 
 def _mp3_to_pcm16(mp3_path: str, sample_rate: int = ROBOT_AUDIO_SAMPLE_RATE) -> str:
-    """Convert MP3 to headerless 16-bit mono PCM at the robot's expected rate."""
+    """Convert MP3 to headerless 16-bit mono PCM at the robot's expected rate.
+
+    A conservative +2 dB digital gain compensates for the MAX98357A's
+    unstrapped GAIN pin (9 dB).  Edge TTS output peaks around -2.7 dBFS,
+    so +2 dB lands the peak near -0.7 dBFS — the loudspeaker is louder
+    without clipping (16-bit full scale is 0 dBFS).  Do not raise this
+    without re-measuring the source peak: +2.2 dB is the absolute
+    ceiling for a -0.5 dBFS safety margin.
+    """
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
     pcm_path = str(Path(mp3_path).with_suffix(".pcm"))
     subprocess.run(
-        [ffmpeg_exe, "-y", "-i", mp3_path, "-ar", str(sample_rate),
-         "-ac", "1", "-f", "s16le", pcm_path],
+        [ffmpeg_exe, "-y", "-i", mp3_path, "-af", "volume=2dB",
+         "-ar", str(sample_rate), "-ac", "1", "-f", "s16le", pcm_path],
         check=True, capture_output=True,
     )
     return pcm_path
